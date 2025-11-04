@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlops-backend
+  namespace: mlops-hub
+  labels:
+    app: mlops-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlops-backend
+  template:
+    metadata:
+      labels:
+        app: mlops-backend
+    spec:
+      containers:
+      - name: mlops-backend
+        image: mlops-hub-backend:latest
+        imagePullPolicy: Never  # Use local image
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_DATASOURCE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: SPRING_DATASOURCE_URL
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: SPRING_DATASOURCE_USERNAME
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mlops-secrets
+              key: SPRING_DATASOURCE_PASSWORD
+        - name: MINIO_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: MINIO_ENDPOINT
+        - name: MLFLOW_TRACKING_URI
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: MLFLOW_TRACKING_URI
+        - name: RAY_HEAD_NODE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: RAY_HEAD_NODE_URL
+        - name: KEYCLOAK_AUTH_SERVER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: KEYCLOAK_AUTH_SERVER_URL
+        - name: KEYCLOAK_REALM
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: KEYCLOAK_REALM
+        - name: KEYCLOAK_CLIENT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: KEYCLOAK_CLIENT_ID
+        - name: KEYCLOAK_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: mlops-secrets
+              key: KEYCLOAK_CLIENT_SECRET
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+      initContainers:
+      - name: wait-for-services
+        image: busybox:1.35
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for PostgreSQL..."
+          until nc -z postgres-service 5432; do
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+          
+          echo "Waiting for MinIO..."
+          until nc -z minio-service 9000; do
+            sleep 2
+          done
+          echo "MinIO is ready!"
+          
+          echo "Waiting for MLflow..."
+          until nc -z mlflow-service 5000; do
+            sleep 2
+          done
+          echo "MLflow is ready!"
+          
+          echo "Waiting for Ray Head..."
+          until nc -z ray-head-service 8265; do
+            sleep 2
+          done
+          echo "Ray Head is ready!"
+          
+          echo "Waiting for Keycloak..."
+          until nc -z keycloak-service 8080; do
+            sleep 2
+          done
+          echo "Keycloak is ready!"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlops-backend-service
+  namespace: mlops-hub
+  labels:
+    app: mlops-backend
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: mlops-backend

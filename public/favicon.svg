@@ -1,0 +1,28 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .favicon-bg { fill: var(--logo-primary-color, #1976d2); }
+      .favicon-nodes { fill: var(--logo-bg-color, white); }
+      .favicon-stroke { stroke: var(--logo-bg-color, white); }
+    </style>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="15" class="favicon-bg"/>
+  
+  <!-- Neural network nodes (moved up for consistency with logo) -->
+  <circle cx="8" cy="9" r="2" class="favicon-nodes"/>
+  <circle cx="16" cy="5" r="2" class="favicon-nodes"/>
+  <circle cx="24" cy="9" r="2" class="favicon-nodes"/>
+  <circle cx="16" cy="20" r="2" class="favicon-nodes"/>
+  <circle cx="8" cy="24" r="2" class="favicon-nodes"/>
+  <circle cx="24" cy="24" r="2" class="favicon-nodes"/>
+  
+  <!-- Neural network connections (adjusted for new positions) -->
+  <line x1="8" y1="9" x2="16" y2="5" class="favicon-stroke" stroke-width="1"/>
+  <line x1="16" y1="5" x2="24" y2="9" class="favicon-stroke" stroke-width="1"/>
+  <line x1="8" y1="9" x2="16" y2="20" class="favicon-stroke" stroke-width="1"/>
+  <line x1="24" y1="9" x2="16" y2="20" class="favicon-stroke" stroke-width="1"/>
+  <line x1="8" y1="24" x2="16" y2="20" class="favicon-stroke" stroke-width="1"/>
+  <line x1="24" y1="24" x2="16" y2="20" class="favicon-stroke" stroke-width="1"/>
+</svg>

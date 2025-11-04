@@ -1,0 +1,172 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ray-head
+  namespace: mlops-hub
+  labels:
+    app: ray-head
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ray-head
+  template:
+    metadata:
+      labels:
+        app: ray-head
+    spec:
+      containers:
+      - name: ray-head
+        image: rayproject/ray:2.8.0-py39
+        ports:
+        - containerPort: 8265  # Ray Dashboard
+        - containerPort: 10001 # Ray GCS (Global Control Store)
+        - containerPort: 20000 # Ray Client Server
+        env:
+        - name: RAY_DISABLE_IMPORT_WARNING
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: RAY_DISABLE_IMPORT_WARNING
+        command:
+        - /bin/bash
+        - -c
+        - |
+          ray start --head --dashboard-host=0.0.0.0 --dashboard-port=8265 --port=10001 --ray-client-server-port=20000
+          # Keep the container running
+          tail -f /dev/null
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8265
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8265
+          initialDelaySeconds: 30
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ray-head-service
+  namespace: mlops-hub
+  labels:
+    app: ray-head
+spec:
+  ports:
+  - name: dashboard
+    port: 8265
+    targetPort: 8265
+    protocol: TCP
+  - name: gcs
+    port: 10001
+    targetPort: 10001
+    protocol: TCP
+  - name: client
+    port: 20000
+    targetPort: 20000
+    protocol: TCP
+  selector:
+    app: ray-head
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ray-worker
+  namespace: mlops-hub
+  labels:
+    app: ray-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ray-worker
+  template:
+    metadata:
+      labels:
+        app: ray-worker
+    spec:
+      containers:
+      - name: ray-worker
+        image: rayproject/ray:2.8.0-py39
+        env:
+        - name: RAY_DISABLE_IMPORT_WARNING
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: RAY_DISABLE_IMPORT_WARNING
+        command:
+        - /bin/bash
+        - -c
+        - |
+          # Wait for Ray head to be ready using Python with better error handling
+          python3 -c "
+          import socket
+          import time
+          import subprocess
+          import sys
+          
+          def check_ray_head():
+              try:
+                  # First check if port is open
+                  sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                  sock.settimeout(5)
+                  result = sock.connect_ex(('ray-head-service', 10001))
+                  sock.close()
+                  if result != 0:
+                      return False
+                  
+                  # Then check if Ray head is actually ready by trying to get cluster info
+                  try:
+                      result = subprocess.run(['ray', 'status', '--address=ray-head-service:10001'], 
+                                            capture_output=True, text=True, timeout=10)
+                      if result.returncode == 0 and 'No cluster status' not in result.stdout:
+                          return True
+                  except:
+                      pass
+                  
+                  return False
+              except Exception as e:
+                  print(f'Error checking Ray head: {e}')
+                  return False
+          
+          print('Waiting for Ray head to be fully ready...')
+          max_attempts = 60  # 5 minutes max
+          attempt = 0
+          
+          while attempt < max_attempts:
+              if check_ray_head():
+                  print('Ray head is ready!')
+                  break
+              else:
+                  print(f'Attempt {attempt + 1}/{max_attempts}: Ray head not ready yet...')
+                  time.sleep(5)
+                  attempt += 1
+          else:
+              print('ERROR: Ray head did not become ready within timeout')
+              sys.exit(1)
+          "
+          
+          echo "Starting Ray worker..."
+          ray start --address=ray-head-service:10001 --block
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "ps aux | grep -v grep | grep ray"
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "ps aux | grep -v grep | grep ray"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5

@@ -1,0 +1,19 @@
+name: mlops_hub
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - fastapi==0.119.1
+      - uvicorn[standard]==0.38.0
+      - pydantic==2.12.3
+      - pydantic-settings==2.11.0
+      - mlflow==3.4.0
+      - transformers==4.57.1
+      - torch==2.9.0
+      - torchvision==0.20.0
+      - safetensors>=0.4.0
+      - boto3>=1.26.0
+

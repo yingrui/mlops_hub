@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mlops-config
+  namespace: mlops-hub
+data:
+  # Database Configuration
+  POSTGRES_DB: "mlops_hub"
+  POSTGRES_USER: "mlops_user"
+  POSTGRES_MULTIPLE_DATABASES: "keycloak,mlflow"
+  POSTGRES_MULTIPLE_USERS: "keycloak_user:keycloak_password,mlflow_user:mlflow_password,mlops_hub_user:mlops_hub_password"
+  
+  # MinIO Configuration
+  MINIO_ROOT_USER: "minioadmin"
+  MINIO_BUCKET: "mlops-hub"
+  
+  # MLflow Configuration
+  MLFLOW_BACKEND_STORE_URI: "postgresql://mlflow_user:mlflow_password@postgres-service:5432/mlflow"
+  MLFLOW_DEFAULT_ARTIFACT_ROOT: "s3://mlflow"
+  MLFLOW_S3_ENDPOINT_URL: "http://minio-service:9000"
+  
+  # Ray Configuration
+  RAY_DISABLE_IMPORT_WARNING: "1"
+  
+  # Keycloak Configuration
+  KEYCLOAK_ADMIN: "admin"
+  KC_DB: "postgres"
+  KC_DB_URL: "jdbc:postgresql://postgres-service:5432/keycloak"
+  KC_DB_USERNAME: "keycloak_user"
+  KC_HOSTNAME_STRICT: "false"
+  KC_HOSTNAME_STRICT_HTTPS: "false"
+  KC_HTTP_ENABLED: "true"
+  
+  # Backend Configuration
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres-service:5432/mlops_hub"
+  SPRING_DATASOURCE_USERNAME: "mlops_hub_user"
+  MINIO_ENDPOINT: "http://minio-service:9000"
+  MLFLOW_TRACKING_URI: "http://mlflow-service:5000"
+  RAY_HEAD_NODE_URL: "http://ray-head-service:8265"
+  KEYCLOAK_AUTH_SERVER_URL: "http://keycloak-service:8080"
+  KEYCLOAK_REALM: "mlops-hub"
+  KEYCLOAK_CLIENT_ID: "mlops-backend"
