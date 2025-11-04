@@ -12,6 +12,13 @@ frontend/coverage
 /build
 frontend/build
 
+# ML Projects
+ml_project_text_classification/outputs
+ml_project_text_classification/hub
+ml_project_text_classification/tmp_trainer
+ml_project_text_classification/.locks
+ml_project_text_classification/models--*
+
 # Misc
 .DS_Store
 .env.local
