@@ -173,60 +173,25 @@ A comprehensive MLOps platform built with React frontend and Java Spring Boot ba
 ## 📁 Project Structure
 
 ```
-src/
-├── components/              # Reusable UI components
-│   ├── Layout/             # Layout components (navigation, sidebar)
-│   │   └── Layout.tsx      # Main application layout
-│   └── UI/                 # Shared UI components
-│       ├── DataTable/      # Advanced data table component
-│       │   └── DataTable.tsx
-│       └── SearchBar/      # Search and filtering component
-│           └── SearchBar.tsx
-├── pages/                  # Page components
-│   ├── Home/               # Dashboard and overview
-│   ├── Datasets/           # Dataset management
-│   │   ├── Datasets.tsx    # Dataset list page
-│   │   └── DatasetDetail.tsx # Dataset detail page
-│   ├── Models/             # Model management
-│   │   ├── Models.tsx      # Model list page
-│   │   └── ModelDetail.tsx # Model detail page
-│   ├── Experiments/        # Experiment tracking
-│   │   ├── Experiments.tsx # Experiment list page
-│   │   └── ExperimentDetail.tsx # Experiment detail page
-│   ├── Runs/               # Run management
-│   │   └── RunDetail.tsx   # Run detail page
-│   ├── Monitoring/         # Model monitoring
-│   │   ├── Monitoring.tsx  # Monitoring list page
-│   │   ├── MonitoringDetail.tsx # Monitoring detail page
-│   │   └── ReportPage.tsx  # Report viewing page
-│   ├── Schedules/          # Automated scheduling
-│   │   ├── Schedules.tsx   # Schedule list page
-│   │   └── ScheduleDetail.tsx # Schedule detail page
-│   ├── InferenceServices/  # Inference service management
-│   │   ├── InferenceServices.tsx
-│   │   └── InferenceServiceDetail.tsx
-│   ├── Entrypoints/        # API gateway management
-│   │   ├── Entrypoints.tsx
-│   │   └── EntrypointDetail.tsx
-│   ├── Solutions/          # Solution templates
-│   │   ├── Solutions.tsx
-│   │   └── SolutionDetail.tsx
-│   ├── Activities/         # Activity feed
-│   │   └── Activities.tsx
-│   ├── Profile/            # User profile
-│   │   └── Profile.tsx
-│   └── NotFound/           # 404 page
-│       └── NotFound.tsx
-├── types/                  # TypeScript type definitions
-│   └── index.ts
-├── services/               # API service functions
-├── hooks/                  # Custom React hooks
-├── utils/                  # Utility functions
-├── contexts/               # React contexts
-├── assets/                 # Static assets
-│   ├── icons/             # Custom icons
-│   └── images/            # Images and graphics
-└── styles/                 # Global styles
+mlops_hub/
+├── frontend/                # React frontend application
+│   ├── src/                 # Source code
+│   │   ├── components/      # Reusable UI components
+│   │   ├── pages/           # Page components
+│   │   ├── services/        # API service functions
+│   │   ├── types/           # TypeScript type definitions
+│   │   └── ...
+│   ├── public/              # Public static files
+│   └── package.json         # Frontend dependencies
+├── backend/                 # Java Spring Boot backend
+│   ├── src/
+│   │   └── main/
+│   │       ├── java/        # Java source code
+│   │       └── resources/   # Configuration files
+│   └── pom.xml              # Maven dependencies
+└── inference_server/       # Python inference server
+    ├── app/                  # Application code
+    └── requirements.txt      # Python dependencies
 ```
 
 ## 🚀 Getting Started
@@ -252,6 +217,9 @@ cd mlops_hub
 
 #### 2. Frontend Setup
 ```bash
+# Navigate to frontend directory
+cd frontend
+
 # Install dependencies
 npm install
 

@@ -16,24 +16,24 @@ The application implements authentication using Keycloak as the identity provide
 
 ### Components
 
-1. **AuthContext** (`src/contexts/AuthContext.tsx`)
+1. **AuthContext** (`frontend/src/contexts/AuthContext.tsx`)
    - Provides authentication state and methods
    - Manages Keycloak initialization and token handling
    - Exposes user information and authentication status
 
-2. **ProtectedRoute** (`src/components/Auth/ProtectedRoute.tsx`)
+2. **ProtectedRoute** (`frontend/src/components/Auth/ProtectedRoute.tsx`)
    - Guards routes that require authentication
    - Shows loading state during authentication check
    - Redirects to login if user is not authenticated
 
-3. **Layout** (`src/components/Layout/Layout.tsx`)
+3. **Layout** (`frontend/src/components/Layout/Layout.tsx`)
    - Updated to show user information and login/logout functionality
    - Displays user avatar and profile menu for authenticated users
    - Shows "Sign In" button for anonymous users
 
 ### Configuration
 
-The frontend configuration is managed in `src/config/index.ts`:
+The frontend configuration is managed in `frontend/src/config/index.ts`:
 
 ```typescript
 export const config = {
@@ -50,7 +50,7 @@ export const config = {
 
 ### Environment Variables
 
-Create a `.env` file in the root directory with the following variables:
+Create a `.env` file in the `frontend` directory with the following variables:
 
 ```env
 REACT_APP_KEYCLOAK_URL=http://localhost:8081
