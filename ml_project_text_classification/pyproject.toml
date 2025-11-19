@@ -31,7 +31,13 @@ dependencies = [
     "accelerate>=0.20.0",
     "virtualenv>=20.0.0",
     "requests>=2.25.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "python-dotenv>=1.0.0",
 ]
+
+[project.scripts]
+mlops-cli = "src.cli.main:app"
 
 [project.optional-dependencies]
 dev = [

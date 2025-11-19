@@ -160,6 +160,109 @@ make mlflow-ui
 
 访问 http://localhost:5000 查看实验记录、参数、指标和模型。
 
+### 4. 使用 CLI 命令行工具
+
+项目提供了 `mlops-cli` 命令行工具，用于从后端服务下载和管理数据集。
+
+#### 安装 CLI
+
+安装项目依赖后，CLI 会自动安装：
+
+```bash
+# 使用 uv（推荐）
+uv sync
+
+# 或使用 pip
+pip install -e .
+```
+
+#### 配置环境变量
+
+在项目根目录创建 `.env` 文件（如果不存在），配置认证和后端服务信息：
+
+```bash
+# Authentication Configuration
+AUTH_URL=http://localhost:8081
+AUTH_REALM=mlops-hub
+AUTH_CLIENT_ID=mlops-cli
+AUTH_CLIENT_SECRET=mlops-cli-secret
+
+# Backend API Configuration
+BACKEND_URL=http://localhost:8080
+```
+
+**注意**: `.env` 文件已添加到 `.gitignore`，不会被提交到版本控制。
+
+#### CLI 命令
+
+##### 查看版本信息
+
+```bash
+mlops-cli version
+```
+
+##### 列出所有可用数据集
+
+```bash
+mlops-cli dataset list
+```
+
+显示所有可用的数据集，包括 ID、名称、描述、文件类型和文件大小。
+
+##### 下载数据集
+
+```bash
+# 下载最新版本的数据集（保存到 ./datasets 目录）
+mlops-cli dataset download <dataset_id>
+
+# 指定输出目录
+mlops-cli dataset download <dataset_id> --output-dir ./data
+
+# 下载指定版本的数据集
+mlops-cli dataset download <dataset_id> --version-id <version_id>
+
+# 下载指定版本中的特定文件
+mlops-cli dataset download <dataset_id> --version-id <version_id> --file-id <file_id>
+```
+
+**示例**:
+
+```bash
+# 列出所有数据集
+mlops-cli dataset list
+
+# 下载 ID 为 1 的数据集
+mlops-cli dataset download 1
+
+# 下载数据集到指定目录
+mlops-cli dataset download 1 --output-dir ./data/llm_router_dataset-synth
+```
+
+#### 高级选项
+
+所有命令都支持通过命令行参数覆盖 `.env` 文件中的配置：
+
+```bash
+# 使用自定义后端 URL
+mlops-cli dataset list --backend-url http://example.com:8080
+
+# 使用自定义认证配置
+mlops-cli dataset download 1 \
+    --keycloak-url http://keycloak.example.com:8081 \
+    --realm my-realm \
+    --client-id my-client \
+    --client-secret my-secret
+```
+
+**注意**: 虽然参数名为 `--keycloak-url`，但它可以用于任何兼容 OIDC 的认证服务器。
+
+#### CLI 特性
+
+- **自动认证**: CLI 会自动使用客户端凭证从认证服务器获取访问令牌
+- **令牌缓存**: 访问令牌会缓存在内存中，避免重复认证
+- **进度显示**: 下载大文件时显示进度条
+- **错误处理**: 友好的错误提示和状态码
+
 ## 使用 Makefile（推荐）
 
 项目提供了 Makefile 来简化常用操作：
