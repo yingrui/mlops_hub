@@ -1,7 +1,7 @@
 [project]
-name = "fast-slow-router"
+name = "ml-project-text-classification"
 version = "0.1.0"
-description = "基于 HuggingFace Transformers 和 MLflow 的快慢思考文本分类项目"
+description = "基于CD4ML理念的ML项目：集成MLflow进行实验追踪和模型管理，支持自动化训练、评估和推理的文本分类项目。遵循MLOps工程化规范，实现可复现、可追溯、可协作的机器学习工作流。"
 authors = [
     {name = "Your Name", email = "your.email@example.com"}
 ]
@@ -51,11 +51,17 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
 
-[tool.hatch.build.targets.wheel]
+[tool.setuptools]
 packages = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.md"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.env", "*.env.*"]
 
 [tool.black]
 line-length = 88

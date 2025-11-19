@@ -1,17 +1,10 @@
 """Main CLI application."""
 
-import os
-from pathlib import Path
-
 import typer
-from dotenv import load_dotenv
 from rich.console import Console
 
 from . import datasets
-
-# Load environment variables from .env file
-env_path = Path(__file__).parent.parent.parent / ".env"
-load_dotenv(env_path)
+# Note: .env file loading is handled in auth.py module
 
 console = Console()
 

@@ -8,9 +8,17 @@ import requests
 from dotenv import load_dotenv
 from rich.console import Console
 
-# Load environment variables from .env file
-env_path = Path(__file__).parent.parent.parent / ".env"
-load_dotenv(env_path)
+# Load environment variables from .env file in current working directory ONLY
+# This allows users to have different .env files for different projects/contexts
+# IMPORTANT: We explicitly check current directory and do NOT search parent directories
+import os as os_module
+current_dir = Path(os_module.getcwd())
+env_path = current_dir / ".env"
+# Only load .env if it exists in current directory AND auth variables aren't already set
+# We use override=False to not overwrite existing env vars, and don't search parent dirs
+if env_path.exists() and not os_module.getenv("AUTH_CLIENT_SECRET"):
+    # Explicitly load only from current directory, don't search parents
+    load_dotenv(dotenv_path=env_path, override=False)
 
 console = Console()
 
@@ -108,23 +116,23 @@ def get_authenticated_session(
 
     Args:
         token: Optional access token (if provided, will be used directly)
-        backend_url: Backend API base URL (defaults to BACKEND_URL env var)
-        keycloak_url: Authentication server URL (defaults to AUTH_URL env var)
-        realm: Authentication realm name (defaults to AUTH_REALM env var)
-        client_id: Client ID for authentication (defaults to AUTH_CLIENT_ID env var)
-        client_secret: Client secret for authentication (defaults to AUTH_CLIENT_SECRET env var)
+        backend_url: Backend API base URL (required via BACKEND_URL env var if not provided)
+        keycloak_url: Authentication server URL (required via AUTH_URL env var if not provided)
+        realm: Authentication realm name (required via AUTH_REALM env var if not provided)
+        client_id: Client ID for authentication (required via AUTH_CLIENT_ID env var if not provided)
+        client_secret: Client secret for authentication (required via AUTH_CLIENT_SECRET env var if not provided)
 
     Returns:
         Authenticated requests.Session or None if authentication fails
     """
-    # Load defaults from environment variables
-    backend_url = backend_url or os.getenv("BACKEND_URL", "http://localhost:8080")
-    keycloak_url = keycloak_url or os.getenv("AUTH_URL", "http://localhost:8081")
-    realm = realm or os.getenv("AUTH_REALM", "mlops-hub")
-    client_id = client_id or os.getenv("AUTH_CLIENT_ID", "mlops-cli")
-    client_secret = client_secret or os.getenv(
-        "AUTH_CLIENT_SECRET", "mlops-cli-secret"
-    )
+    # Load configuration from environment variables
+    # Note: .env file is automatically loaded by load_dotenv() at module import
+    # All configuration values must be explicitly provided - no defaults
+    backend_url = backend_url or os.getenv("BACKEND_URL")
+    keycloak_url = keycloak_url or os.getenv("AUTH_URL")
+    realm = realm or os.getenv("AUTH_REALM")
+    client_id = client_id or os.getenv("AUTH_CLIENT_ID")
+    client_secret = client_secret or os.getenv("AUTH_CLIENT_SECRET")
 
     # Try to get token in this order:
     # 1. Explicitly provided token
@@ -140,6 +148,36 @@ def get_authenticated_session(
     
     # If no token available, automatically authenticate with client credentials
     if not token:
+        # Validate all required configuration is provided
+        missing_config = []
+        if not backend_url:
+            missing_config.append("BACKEND_URL")
+        if not keycloak_url:
+            missing_config.append("AUTH_URL")
+        if not realm:
+            missing_config.append("AUTH_REALM")
+        if not client_id:
+            missing_config.append("AUTH_CLIENT_ID")
+        if not client_secret:
+            missing_config.append("AUTH_CLIENT_SECRET")
+        
+        if missing_config:
+            console.print(
+                "[red]Error: Missing required configuration. "
+                "Please set the following in your .env file or as environment variables:[/red]"
+            )
+            for config in missing_config:
+                console.print(f"[red]  - {config}[/red]")
+            console.print(
+                "[yellow]Tip: Create a .env file in the current directory with:\n"
+                "  BACKEND_URL=http://localhost:8080\n"
+                "  AUTH_URL=http://localhost:8081\n"
+                "  AUTH_REALM=mlops-hub\n"
+                "  AUTH_CLIENT_ID=mlops-cli\n"
+                "  AUTH_CLIENT_SECRET=your-client-secret[/yellow]"
+            )
+            return None
+        
         console.print("[yellow]Authenticating with Keycloak (client credentials)...[/yellow]")
         token = get_keycloak_token_with_client_credentials(
             keycloak_url, realm, client_id, client_secret

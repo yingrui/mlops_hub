@@ -5,15 +5,12 @@ from pathlib import Path
 from typing import Optional
 
 import requests
-from dotenv import load_dotenv
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 import typer
 
-# Load environment variables from .env file
-env_path = Path(__file__).parent.parent.parent / ".env"
-load_dotenv(env_path)
+# Note: .env file loading is handled in auth.py module
 
 console = Console()
 
