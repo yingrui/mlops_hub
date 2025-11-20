@@ -2,27 +2,27 @@ package com.mlops.hub.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mlops.hub.entity.Dataset;
+import com.mlops.hub.entity.DatasetVersion;
+import com.mlops.hub.entity.DatasetFile;
 import com.mlops.hub.repository.DatasetRepository;
 import com.mlops.hub.service.DatasetService;
 import com.mlops.hub.service.DatasetVersionService;
 import com.mlops.hub.config.TestSecurityConfig;
-import com.mlops.hub.controller.DatasetController;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -197,5 +197,229 @@ public class DatasetControllerTest {
         dataset.setCreatedAt(LocalDateTime.now());
         dataset.setUpdatedAt(LocalDateTime.now());
         return datasetRepository.save(dataset);
+    }
+
+    // ========== Contract/Integration Tests for Dataset API ==========
+
+    @Test
+    void testGetDatasetByIdWithVersions() throws Exception {
+        // Given: Dataset with versions
+        Dataset dataset = new Dataset();
+        dataset.setId(1L);
+        dataset.setName("Test Dataset");
+        dataset.setDescription("Test Description");
+        
+        DatasetVersion version1 = new DatasetVersion();
+        version1.setVersionId("v1.0");
+        version1.setDatasetId(1L);
+        version1.setVersionNumber(1);
+        version1.setStatus(DatasetVersion.VersionStatus.COMMITTED);
+        version1.setCreatedAt(LocalDateTime.now());
+        
+        DatasetVersion version2 = new DatasetVersion();
+        version2.setVersionId("v2.0");
+        version2.setDatasetId(1L);
+        version2.setVersionNumber(2);
+        version2.setStatus(DatasetVersion.VersionStatus.COMMITTED);
+        version2.setCreatedAt(LocalDateTime.now());
+        
+        List<DatasetVersion> versions = new ArrayList<>();
+        versions.add(version1);
+        versions.add(version2);
+        dataset.setVersions(versions);
+        
+        when(datasetService.getDatasetById(1L)).thenReturn(Optional.of(dataset));
+
+        // When & Then: Verify dataset includes versions
+        mockMvc.perform(get("/api/datasets/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("Test Dataset"))
+                .andExpect(jsonPath("$.versions").exists())
+                .andExpect(jsonPath("$.versions").isArray())
+                .andExpect(jsonPath("$.versions.length()").value(2))
+                .andExpect(jsonPath("$.versions[0].versionId").value("v1.0"))
+                .andExpect(jsonPath("$.versions[1].versionId").value("v2.0"));
+    }
+
+    @Test
+    void testGetFilesByVersion() throws Exception {
+        // Given: Dataset version with files
+        Long datasetId = 1L;
+        String versionId = "v1.0";
+        
+        DatasetFile file1 = new DatasetFile();
+        file1.setFileId("file-1");
+        file1.setFileName("data.csv");
+        file1.setFileSize(1024L);
+        file1.setFileFormat("CSV");
+        file1.setVersionId(1L);
+        
+        DatasetFile file2 = new DatasetFile();
+        file2.setFileId("file-2");
+        file2.setFileName("metadata.json");
+        file2.setFileSize(512L);
+        file2.setFileFormat("JSON");
+        file2.setVersionId(1L);
+        
+        List<DatasetFile> files = List.of(file1, file2);
+        when(datasetVersionService.getFilesByVersion(datasetId, versionId)).thenReturn(files);
+
+        // When & Then: Verify file list structure matches CLI expectations
+        mockMvc.perform(get("/api/datasets/{datasetId}/versions/{versionId}/files", datasetId, versionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].fileId").value("file-1"))
+                .andExpect(jsonPath("$[0].fileName").value("data.csv"))
+                .andExpect(jsonPath("$[0].fileSize").value(1024))
+                .andExpect(jsonPath("$[0].fileFormat").value("CSV"))
+                .andExpect(jsonPath("$[1].fileId").value("file-2"))
+                .andExpect(jsonPath("$[1].fileName").value("metadata.json"))
+                .andExpect(jsonPath("$[1].fileSize").value(512))
+                .andExpect(jsonPath("$[1].fileFormat").value("JSON"));
+    }
+
+    @Test
+    void testDownloadFileWithCorrectHeaders() throws Exception {
+        // Given: File to download
+        Long datasetId = 1L;
+        String versionId = "v1.0";
+        String fileId = "file-1";
+        byte[] fileContent = "test file content".getBytes();
+        
+        DatasetFile file = new DatasetFile();
+        file.setFileId(fileId);
+        file.setFileName("test-data.csv");
+        file.setFileSize((long) fileContent.length);
+        file.setVersionId(1L);
+        
+        List<DatasetFile> files = List.of(file);
+        when(datasetVersionService.getFilesByVersion(datasetId, versionId)).thenReturn(files);
+        when(datasetVersionService.downloadFile(datasetId, versionId, fileId)).thenReturn(fileContent);
+
+        // When & Then: Verify download endpoint returns correct headers and content
+        mockMvc.perform(get("/api/datasets/{datasetId}/versions/{versionId}/files/{fileId}/download",
+                        datasetId, versionId, fileId))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", MediaType.APPLICATION_OCTET_STREAM_VALUE))
+                .andExpect(header().string("Content-Disposition", containsString("attachment")))
+                .andExpect(header().string("Content-Disposition", containsString("test-data.csv")))
+                .andExpect(content().bytes(fileContent));
+    }
+
+    @Test
+    void testGetFilesByVersionNotFound() throws Exception {
+        // Given: Non-existent version
+        Long datasetId = 1L;
+        String versionId = "non-existent";
+        
+        when(datasetVersionService.getFilesByVersion(datasetId, versionId))
+                .thenThrow(new RuntimeException("Version not found"));
+
+        // When & Then: Should return bad request (as per controller implementation)
+        mockMvc.perform(get("/api/datasets/{datasetId}/versions/{versionId}/files", datasetId, versionId))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testDownloadFileNotFound() throws Exception {
+        // Given: Non-existent file
+        Long datasetId = 1L;
+        String versionId = "v1.0";
+        String fileId = "non-existent-file";
+        
+        // Return empty file list (file not found)
+        when(datasetVersionService.getFilesByVersion(datasetId, versionId)).thenReturn(List.of());
+        when(datasetVersionService.downloadFile(datasetId, versionId, fileId))
+                .thenReturn(new byte[0]);
+
+        // When & Then: Should return 404
+        mockMvc.perform(get("/api/datasets/{datasetId}/versions/{versionId}/files/{fileId}/download",
+                        datasetId, versionId, fileId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testGetVersionNotFound() throws Exception {
+        // Given: Non-existent version
+        Long datasetId = 1L;
+        String versionId = "non-existent";
+        
+        when(datasetVersionService.getVersionById(datasetId, versionId)).thenReturn(Optional.empty());
+
+        // When & Then: Should return 404
+        mockMvc.perform(get("/api/datasets/{datasetId}/versions/{versionId}", datasetId, versionId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testGetVersionsByDataset() throws Exception {
+        // Given: Dataset with multiple versions
+        Long datasetId = 1L;
+        
+        DatasetVersion version1 = new DatasetVersion();
+        version1.setVersionId("v1.0");
+        version1.setDatasetId(datasetId);
+        version1.setVersionNumber(1);
+        version1.setStatus(DatasetVersion.VersionStatus.COMMITTED);
+        version1.setCreatedAt(LocalDateTime.now());
+        
+        DatasetVersion version2 = new DatasetVersion();
+        version2.setVersionId("v2.0");
+        version2.setDatasetId(datasetId);
+        version2.setVersionNumber(2);
+        version2.setStatus(DatasetVersion.VersionStatus.COMMITTED);
+        version2.setCreatedAt(LocalDateTime.now());
+        
+        List<DatasetVersion> versions = List.of(version1, version2);
+        when(datasetVersionService.getVersionsByDatasetId(datasetId)).thenReturn(versions);
+
+        // When & Then: Verify versions endpoint structure
+        mockMvc.perform(get("/api/datasets/{datasetId}/versions", datasetId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].versionId").value("v1.0"))
+                .andExpect(jsonPath("$[0].datasetId").value(1))
+                .andExpect(jsonPath("$[0].versionNumber").value(1))
+                .andExpect(jsonPath("$[1].versionId").value("v2.0"))
+                .andExpect(jsonPath("$[1].datasetId").value(1))
+                .andExpect(jsonPath("$[1].versionNumber").value(2));
+    }
+
+    @Test
+    void testGetDatasetByIdWithEmptyVersions() throws Exception {
+        // Given: Dataset without versions
+        Dataset dataset = new Dataset();
+        dataset.setId(1L);
+        dataset.setName("Test Dataset");
+        dataset.setDescription("Test Description");
+        dataset.setVersions(new ArrayList<>());
+        
+        when(datasetService.getDatasetById(1L)).thenReturn(Optional.of(dataset));
+
+        // When & Then: Verify dataset with empty versions array
+        mockMvc.perform(get("/api/datasets/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.versions").exists())
+                .andExpect(jsonPath("$.versions").isArray())
+                .andExpect(jsonPath("$.versions.length()").value(0));
+    }
+
+    @Test
+    void testGetFilesByVersionEmptyList() throws Exception {
+        // Given: Version with no files
+        Long datasetId = 1L;
+        String versionId = "v1.0";
+        
+        when(datasetVersionService.getFilesByVersion(datasetId, versionId)).thenReturn(List.of());
+
+        // When & Then: Should return empty array
+        mockMvc.perform(get("/api/datasets/{datasetId}/versions/{versionId}/files", datasetId, versionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 }
