@@ -1,0 +1,21 @@
+# Cursor Rules for MLOps Hub Text Classification Project
+
+## Code Quality Principles
+
+### Method Length and Cleanliness
+- **Keep methods short and clean**: Methods should be focused on a single responsibility
+- **Extract helper functions**: Break down complex logic into smaller, reusable helper functions
+- **Maximum method length**: Aim for methods under 30-40 lines; if longer, consider refactoring
+- **Single Responsibility Principle**: Each function should do one thing well
+
+### Code Organization
+- **Helper functions**: Use private helper functions (prefixed with `_`) to break down complex operations
+- **Clear naming**: Function names should clearly describe what they do
+- **Avoid deep nesting**: Use early returns and guard clauses to reduce nesting levels
+
+## Python Style Guidelines
+- Use type hints for function parameters and return types
+- Keep functions focused and testable
+- Prefer composition over complex conditionals
+- Use descriptive variable names
+

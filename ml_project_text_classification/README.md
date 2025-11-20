@@ -201,13 +201,17 @@ BACKEND_URL=http://localhost:8080
 mlops-cli version
 ```
 
-##### 列出所有可用数据集
+##### 搜索数据集
 
 ```bash
-mlops-cli dataset list
+# 搜索包含关键词的数据集
+mlops-cli dataset search <keyword>
+
+# 如果不提供关键词，将返回所有可用数据集（最多20个）
+mlops-cli dataset search
 ```
 
-显示所有可用的数据集，包括 ID、名称、描述、文件类型和文件大小。
+显示匹配的数据集，包括 ID、名称、描述、文件类型和文件大小。
 
 ##### 下载数据集
 
@@ -228,8 +232,11 @@ mlops-cli dataset download <dataset_id> --version-id <version_id> --file-id <fil
 **示例**:
 
 ```bash
-# 列出所有数据集
-mlops-cli dataset list
+# 搜索包含 "text" 的数据集
+mlops-cli dataset search text
+
+# 列出所有数据集（不提供关键词）
+mlops-cli dataset search
 
 # 下载 ID 为 1 的数据集
 mlops-cli dataset download 1
@@ -244,7 +251,7 @@ mlops-cli dataset download 1 --output-dir ./data/llm_router_dataset-synth
 
 ```bash
 # 使用自定义后端 URL
-mlops-cli dataset list --backend-url http://example.com:8080
+mlops-cli dataset search text --backend-url http://example.com:8080
 
 # 使用自定义认证配置
 mlops-cli dataset download 1 \

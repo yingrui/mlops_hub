@@ -3,7 +3,7 @@
 import typer
 from rich.console import Console
 
-from . import datasets
+from . import dataset_cli
 # Note: .env file loading is handled in auth.py module
 
 console = Console()
@@ -15,7 +15,7 @@ app = typer.Typer(
 )
 
 # Add subcommands
-app.add_typer(datasets.app, name="dataset", help="Dataset management commands")
+app.add_typer(dataset_cli.app, name="dataset", help="Dataset management commands")
 
 
 @app.command()

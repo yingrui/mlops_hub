@@ -1,4 +1,4 @@
-"""Dataset management commands for CLI."""
+"""Dataset management CLI commands."""
 
 import os
 from pathlib import Path
@@ -99,6 +99,68 @@ def _build_datasets_table(datasets: List[Dict[str, Any]], session: requests.Sess
     return table
 
 
+def _fetch_version_files(
+    session: requests.Session, backend_url: str, dataset_id: int, version_id: str
+) -> List[Dict[str, Any]]:
+    """Fetch files for a specific version."""
+    files_response = session.get(
+        f"{backend_url}/api/datasets/{dataset_id}/versions/{version_id}/files"
+    )
+    if files_response.status_code != 200:
+        console.print(f"[red]Could not get files for version {version_id}[/red]")
+        raise typer.Exit(1)
+    return files_response.json()
+
+
+def _get_specific_file(
+    session: requests.Session,
+    backend_url: str,
+    dataset_id: int,
+    version_id: str,
+    file_id: str,
+) -> List[Tuple[str, str, Dict[str, Any]]]:
+    """Get a specific file from a specific version."""
+    files = _fetch_version_files(session, backend_url, dataset_id, version_id)
+    file_info = next((f for f in files if f.get("fileId") == file_id), None)
+    if not file_info:
+        console.print(f"[red]File {file_id} not found in version {version_id}[/red]")
+        raise typer.Exit(1)
+    return [(version_id, file_id, file_info)]
+
+
+def _get_all_files_from_version(
+    session: requests.Session,
+    backend_url: str,
+    dataset_id: int,
+    version_id: str,
+) -> List[Tuple[str, str, Dict[str, Any]]]:
+    """Get all files from a specific version."""
+    files = _fetch_version_files(session, backend_url, dataset_id, version_id)
+    if not files:
+        console.print(f"[red]No files found in version {version_id}[/red]")
+        raise typer.Exit(1)
+    return [(version_id, f.get("fileId"), f) for f in files]
+
+
+def _get_latest_version_files(
+    session: requests.Session,
+    backend_url: str,
+    dataset_id: int,
+    dataset: Dict[str, Any],
+) -> List[Tuple[str, str, Dict[str, Any]]]:
+    """Get all files from the latest version."""
+    versions = dataset.get("versions", [])
+    if not versions:
+        console.print("[red]No versions found for this dataset[/red]")
+        raise typer.Exit(1)
+    
+    latest_version = versions[-1]  # Assuming versions are ordered
+    latest_version_id = latest_version.get("versionId")
+    console.print(f"[yellow]Downloading files from latest version: {latest_version_id}[/yellow]")
+    
+    return _get_all_files_from_version(session, backend_url, dataset_id, latest_version_id)
+
+
 def _get_files_for_download(
     session: requests.Session,
     backend_url: str,
@@ -114,62 +176,11 @@ def _get_files_for_download(
         List of tuples: (version_id, file_id, file_info)
     """
     if version_id and file_id:
-        # Download specific file from specific version
-        files_response = session.get(
-            f"{backend_url}/api/datasets/{dataset_id}/versions/{version_id}/files"
-        )
-        if files_response.status_code != 200:
-            console.print(f"[red]Could not get files for version {version_id}[/red]")
-            raise typer.Exit(1)
-        
-        files = files_response.json()
-        file_info = next((f for f in files if f.get("fileId") == file_id), None)
-        if not file_info:
-            console.print(f"[red]File {file_id} not found in version {version_id}[/red]")
-            raise typer.Exit(1)
-        
-        return [(version_id, file_id, file_info)]
-    
+        return _get_specific_file(session, backend_url, dataset_id, version_id, file_id)
     elif version_id:
-        # Download all files from specified version
-        files_response = session.get(
-            f"{backend_url}/api/datasets/{dataset_id}/versions/{version_id}/files"
-        )
-        if files_response.status_code != 200:
-            console.print(f"[red]Could not get files for version {version_id}[/red]")
-            raise typer.Exit(1)
-        
-        files = files_response.json()
-        if not files:
-            console.print(f"[red]No files found in version {version_id}[/red]")
-            raise typer.Exit(1)
-        
-        return [(version_id, f.get("fileId"), f) for f in files]
-    
+        return _get_all_files_from_version(session, backend_url, dataset_id, version_id)
     else:
-        # Download all files from latest version
-        versions = dataset.get("versions", [])
-        if not versions:
-            console.print("[red]No versions found for this dataset[/red]")
-            raise typer.Exit(1)
-        
-        latest_version = versions[-1]  # Assuming versions are ordered
-        latest_version_id = latest_version.get("versionId")
-        console.print(f"[yellow]Downloading files from latest version: {latest_version_id}[/yellow]")
-        
-        files_response = session.get(
-            f"{backend_url}/api/datasets/{dataset_id}/versions/{latest_version_id}/files"
-        )
-        if files_response.status_code != 200:
-            console.print("[red]Could not get files for latest version[/red]")
-            raise typer.Exit(1)
-        
-        files = files_response.json()
-        if not files:
-            console.print("[red]No files found in latest version[/red]")
-            raise typer.Exit(1)
-        
-        return [(latest_version_id, f.get("fileId"), f) for f in files]
+        return _get_latest_version_files(session, backend_url, dataset_id, dataset)
 
 
 def _extract_filename(content_disposition: str, default_name: str) -> str:
@@ -177,6 +188,30 @@ def _extract_filename(content_disposition: str, default_name: str) -> str:
     if "filename=" in content_disposition:
         return content_disposition.split("filename=")[1].strip('"')
     return default_name
+
+
+def _get_version_numeric_id(dataset: Dict[str, Any], version_id: str) -> str:
+    """Get numeric version ID for directory name, fallback to versionId if not available."""
+    versions = dataset.get("versions", [])
+    if versions:
+        version_obj = next(
+            (v for v in versions if v.get("versionId") == version_id),
+            None
+        )
+        if version_obj and version_obj.get("id"):
+            return str(version_obj.get("id"))
+    return version_id
+
+
+def _create_version_directory(
+    output_dir: str, dataset_id: int, dataset: Dict[str, Any], version_id: str
+) -> Path:
+    """Create directory structure: datasets/{dataset_id}/{version.id}/"""
+    version_dir_name = _get_version_numeric_id(dataset, version_id)
+    base_output_path = Path(output_dir)
+    version_output_path = base_output_path / str(dataset_id) / version_dir_name
+    version_output_path.mkdir(parents=True, exist_ok=True)
+    return version_output_path
 
 
 def _download_single_file(
@@ -246,8 +281,9 @@ def _print_download_summary(downloaded_files: List[Tuple[str, float]]) -> None:
         console.print(f"  - {filename} ({size_mb:.2f} MB)")
 
 
-@app.command("list")
-def list_datasets(
+@app.command("search")
+def search_datasets(
+    keyword: str = typer.Argument("", help="Search keyword to filter datasets by name"),
     backend_url: str = typer.Option(
         os.getenv("BACKEND_URL", "http://localhost:8080"), help="Backend API base URL"
     ),
@@ -264,7 +300,11 @@ def list_datasets(
         os.getenv("AUTH_CLIENT_SECRET", ""), help="Client secret"
     ),
 ):
-    """List all available datasets."""
+    """
+    Search datasets by keyword.
+    
+    If no keyword is provided, returns all available datasets (limited to 20).
+    """
     from .auth import get_authenticated_session
 
     session = get_authenticated_session(
@@ -279,18 +319,25 @@ def list_datasets(
         raise typer.Exit(1)
 
     try:
-        response = session.get(f"{backend_url}/api/datasets")
+        # Use search endpoint if keyword is provided, otherwise use list endpoint
+        if keyword:
+            response = session.get(f"{backend_url}/api/datasets/search", params={"name": keyword})
+        else:
+            response = session.get(f"{backend_url}/api/datasets")
         response.raise_for_status()
         datasets = response.json()
 
         if not datasets:
-            console.print("[yellow]No datasets found[/yellow]")
+            if keyword:
+                console.print(f"[yellow]No datasets found matching '{keyword}'[/yellow]")
+            else:
+                console.print("[yellow]No datasets found[/yellow]")
             return
 
         table = _build_datasets_table(datasets, session, backend_url)
         console.print(table)
     except requests.exceptions.RequestException as e:
-        console.print(f"[red]Failed to list datasets: {e}[/red]")
+        console.print(f"[red]Failed to search datasets: {e}[/red]")
         raise typer.Exit(1)
 
 
@@ -325,7 +372,8 @@ def download_dataset(
     """
     Download a dataset from the backend service.
 
-    Downloads the dataset and saves it to the specified output directory.
+    Downloads the dataset and saves it to datasets/{dataset_id}/{version.id}/ directory.
+    Files are organized by dataset ID and version numeric ID for better organization.
     """
     from .auth import get_authenticated_session
 
@@ -339,9 +387,6 @@ def download_dataset(
 
     if not session:
         raise typer.Exit(1)
-
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
 
     try:
         # Get dataset info first
@@ -359,21 +404,36 @@ def download_dataset(
         dataset_name = dataset.get("name", f"dataset_{dataset_id}")
         console.print(f"[green]Dataset:[/green] {dataset_name}")
 
-        # Determine which files to download
+        # Determine which files to download and get version_id
         files_to_download = _get_files_for_download(
             session, backend_url, dataset_id, dataset, version_id, file_id
         )
+
+        # Determine the version_id from files_to_download (all files should be from same version)
+        if not files_to_download:
+            console.print("[red]No files to download[/red]")
+            raise typer.Exit(1)
+        
+        actual_version_id = files_to_download[0][0]  # Get versionId (string) from first file for API calls
+        
+        # Create directory structure: datasets/{dataset_id}/{version.id}/
+        version_output_path = _create_version_directory(
+            output_dir, dataset_id, dataset, actual_version_id
+        )
+        
+        console.print(f"[cyan]Downloading to:[/cyan] {version_output_path}")
 
         # Download all files
         downloaded_files = []
         for ver_id, file_id_val, file_info in files_to_download:
             filename, size_mb = _download_single_file(
-                session, backend_url, dataset_id, ver_id, file_id_val, file_info, output_path
+                session, backend_url, dataset_id, ver_id, file_id_val, file_info, version_output_path
             )
             downloaded_files.append((filename, size_mb))
 
         # Print summary
         _print_download_summary(downloaded_files)
+        console.print(f"[green]Files saved to:[/green] {version_output_path}")
 
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 404:
